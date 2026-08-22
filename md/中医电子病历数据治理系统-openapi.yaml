@@ -1,0 +1,1623 @@
+openapi: 3.0.3
+info:
+  title: 中医电子病历数据治理系统
+  description: |
+    中医电子病历数据治理系统接口文档。
+    ## 实体分层命名约定
+    - **DTO**（后缀 DTO）：请求体入参模型，接口入参统一使用。
+    - **VO**（后缀 VO）：响应体出参模型，接口出参统一使用。
+    - **PO**（后缀 PO）：数据库持久层实体，内部使用，不暴露于接口，故本文档不列出。
+    - **共享模型**（无后缀）：跨请求/响应复用的数据模型（如 StructuredData、Entity、Herb、RecordMetadata），见数据模型定义。
+    ## 接口通用约定
+    除标注「文件流下载」的接口外，所有接口统一返回 Result 包装 {"code":200,"msg":"string","data":any}。
+    - code: 200成功；400参数非法；401未登录/token失效；403权限不足；404资源不存在；500服务异常。
+    - 登录态：非登录接口需在请求头携带 Authorization: Bearer <token>。
+    - 实体识别无结果统一返回空数组 []，禁止返回 null。
+    - 分页统一参数：page（从1开始）、pageSize。
+    - 错误响应统一结构见 ErrorVO（code/msg/data，非 200 时 data 为 null）。
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+    description: 本地开发
+tags:
+  - name: 认证
+    description: 用户登录鉴权
+  - name: 病历管理
+    description: 病历导入、新增、查看、修改、删除、查询
+  - name: NLP抽取
+    description: 中医四诊实体抽取
+  - name: 数据治理
+    description: 术语标准化、数据清洗规整、数据集导出
+  - name: 质控
+    description: 事前质控、诊疗逻辑校验、终末评分
+  - name: 复核
+    description: 人工校正与复核
+  - name: 词典管理
+    description: 术语库导入、查询、回滚
+  - name: 统计查询
+    description: 症状频次/证型分布/方剂中药频次
+  - name: 日志
+    description: 操作日志导出
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    Unauthorized:
+      description: 未登录或 token 缺失/过期（code=401）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorVO'
+    Forbidden:
+      description: 权限不足（code=403）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorVO'
+    ServerError:
+      description: 服务异常（code=500）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorVO'
+  schemas:
+    # ========== 通用响应包装（VO） ==========
+    ResultVO:
+      type: object
+      description: 统一响应包装（出参）
+      properties:
+        code:
+          type: integer
+          example: 200
+        msg:
+          type: string
+          example: success
+        data:
+          nullable: true
+    ErrorVO:
+      type: object
+      description: 统一错误响应（出参；非 200 时 data 为 null）
+      properties:
+        code:
+          type: integer
+          description: 错误码：400/401/403/404/500 及业务错误码
+        msg:
+          type: string
+          description: 错误描述
+        data:
+          type: object
+          nullable: true
+          example: null
+    # ========== 共享数据模型（跨请求/响应复用，非 PO） ==========
+    Entity:
+      type: object
+      description: 实体（含内容与原文片段），共享模型
+      properties:
+        content:
+          type: string
+          description: 标准表述
+        sourceText:
+          type: string
+          description: 原文片段
+    Herb:
+      type: object
+      description: 中药实体（含剂量），共享模型
+      properties:
+        name:
+          type: string
+          description: 中药名称
+        dosage:
+          type: string
+          description: 剂量，如 15g
+        sourceText:
+          type: string
+          description: 原文片段
+    RecordMetadata:
+      type: object
+      description: 病历元数据（共享模型）
+      properties:
+        visitDate:
+          type: string
+          format: date
+          example: '2024-11-20'
+        department:
+          type: string
+          example: 内科
+        tags:
+          type: array
+          items:
+            type: string
+          example:
+            - 门诊
+    StructuredData:
+      type: object
+      description: 结构化病历数据模型（共享模型：NLP 提取结果出参 / 质控评分与复核入参复用；未识别实体返回空数组 []）
+      properties:
+        symptoms:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entity'
+        tongueList:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entity'
+        pulseList:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entity'
+        syndromeList:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entity'
+        causeList:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entity'
+        treatmentList:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entity'
+        formulaList:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entity'
+        herbs:
+          type: array
+          items:
+            $ref: '#/components/schemas/Herb'
+    # ========== 认证 DTO / VO ==========
+    LoginDTO:
+      type: object
+      description: 登录请求（入参）
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+    LoginVO:
+      type: object
+      description: 登录响应（出参）
+      properties:
+        token:
+          type: string
+        role:
+          type: string
+          description: 数据管理员 / 病历审核人员 / 科研只读用户 / 系统管理员
+        menus:
+          type: array
+          items:
+            type: string
+          example:
+            - 病历管理
+            - 结构化解析
+            - 质控管理
+            - 人工复核
+            - 数据治理
+            - 词典管理
+            - 系统管理
+    # ========== 病历管理 DTO / VO ==========
+    ImportSummaryVO:
+      type: object
+      description: 导入摘要（出参）
+      properties:
+        total:
+          type: integer
+        success:
+          type: integer
+        failed:
+          type: integer
+        failures:
+          type: array
+          items:
+            type: object
+            properties:
+              filename:
+                type: string
+              reason:
+                type: string
+    ImportTaskVO:
+      type: object
+      description: 导入任务（出参）
+      properties:
+        taskId:
+          type: string
+        summary:
+          $ref: '#/components/schemas/ImportSummaryVO'
+    ImportStatusVO:
+      type: object
+      description: 导入进度（出参）
+      properties:
+        taskId:
+          type: string
+        status:
+          type: string
+          enum:
+            - 处理中
+            - 已完成
+    CreateRecordDTO:
+      type: object
+      description: 单条新增病历请求（入参）
+      required:
+        - rawText
+      properties:
+        rawText:
+          type: string
+        metadata:
+          $ref: '#/components/schemas/RecordMetadata'
+    CreateRecordVO:
+      type: object
+      description: 新增病历响应（出参）
+      properties:
+        id:
+          type: string
+    RawRecordVO:
+      type: object
+      description: 原始病历查看响应（出参）
+      properties:
+        id:
+          type: string
+        rawText:
+          type: string
+        metadata:
+          type: object
+          properties:
+            visitDate:
+              type: string
+              format: date
+            department:
+              type: string
+    UpdateRecordDTO:
+      type: object
+      description: 修改病历请求（入参，仅元数据，原始文本不可修改）
+      properties:
+        metadata:
+          type: object
+          properties:
+            visitDate:
+              type: string
+              format: date
+            department:
+              type: string
+            tags:
+              type: array
+              items:
+                type: string
+            archived:
+              type: boolean
+    DeleteRecordsDTO:
+      type: object
+      description: 批量删除请求（入参）
+      required:
+        - ids
+      properties:
+        ids:
+          type: array
+          items:
+            type: string
+    DeleteRecordsVO:
+      type: object
+      description: 删除响应（出参）
+      properties:
+        deletedCount:
+          type: integer
+    SearchDTO:
+      type: object
+      description: 多条件查询请求（入参）
+      properties:
+        patientId:
+          type: string
+        dateRange:
+          type: array
+          items:
+            type: string
+            format: date
+          description: [开始日期, 结束日期]
+        syndrome:
+          type: string
+        status:
+          type: string
+          description: 病历状态，如 invalid 查询无效数据
+        page:
+          type: integer
+          example: 1
+        pageSize:
+          type: integer
+          example: 20
+    SearchVO:
+      type: object
+      description: 查询响应（出参；summary 为原始病历截取片段，非完整结构化）
+      properties:
+        total:
+          type: integer
+        records:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              summary:
+                type: string
+    # ========== NLP 抽取 DTO / VO ==========
+    NlpExtractDTO:
+      type: object
+      description: NLP 抽取请求（入参）
+      required:
+        - text
+      properties:
+        text:
+          type: string
+          description: 待抽取的原始病历文本
+    NlpExtractVO:
+      type: object
+      description: NLP 抽取响应（出参，结构同 StructuredData）
+      properties:
+        symptoms:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entity'
+        tongueList:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entity'
+        pulseList:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entity'
+        syndromeList:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entity'
+        causeList:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entity'
+        treatmentList:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entity'
+        formulaList:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entity'
+        herbs:
+          type: array
+          items:
+            $ref: '#/components/schemas/Herb'
+    # ========== 数据治理 DTO / VO ==========
+    NormalizeDTO:
+      type: object
+      description: 术语标准化请求（入参）
+      required:
+        - type
+        - term
+      properties:
+        type:
+          type: string
+          enum:
+            - symptom
+            - syndrome
+            - herb
+            - formula
+          description: symptom症状 / syndrome证型 / herb中药 / formula方剂
+        term:
+          type: string
+          description: 口语化/非标准术语
+    NormalizeVO:
+      type: object
+      description: 术语标准化响应（出参；未命中时 standardTerm 返回原词、source 返回空字符串）
+      properties:
+        standardTerm:
+          type: string
+        source:
+          type: string
+    CleanDTO:
+      type: object
+      description: 数据清洗请求（入参）
+      required:
+        - recordIds
+      properties:
+        recordIds:
+          type: array
+          items:
+            type: string
+    CleanVO:
+      type: object
+      description: 清洗结果（出参）
+      properties:
+        deduped:
+          type: integer
+        repaired:
+          type: integer
+        cleared:
+          type: integer
+        isolated:
+          type: integer
+        total:
+          type: integer
+    ExportDatasetDTO:
+      type: object
+      description: 数据集导出请求（入参）
+      properties:
+        format:
+          type: string
+          enum:
+            - csv
+            - json
+          default: csv
+        filters:
+          type: object
+          description: 复用基础查询条件
+    # ========== 质控 DTO / VO ==========
+    QcCheckDTO:
+      type: object
+      description: 事前质控检查请求（入参）
+      properties:
+        structuredData:
+          $ref: '#/components/schemas/StructuredData'
+    QcCheckVO:
+      type: object
+      description: 质控检查响应（出参）
+      properties:
+        missingFields:
+          type: array
+          items:
+            type: string
+        formatErrors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              msg:
+                type: string
+        isDuplicate:
+          type: boolean
+    LogicCheckDTO:
+      type: object
+      description: 诊疗逻辑一致性检查请求（入参，数组形式）
+      properties:
+        syndromeList:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entity'
+        treatmentList:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entity'
+        formulaList:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entity'
+        herbList:
+          type: array
+          items:
+            $ref: '#/components/schemas/Herb'
+    LogicCheckVO:
+      type: object
+      description: 逻辑一致性检查响应（出参）
+      properties:
+        consistent:
+          type: boolean
+        conflicts:
+          type: array
+          items:
+            type: string
+    QcScoreDTO:
+      type: object
+      description: 终末质控评分请求（入参）
+      properties:
+        structuredData:
+          $ref: '#/components/schemas/StructuredData'
+        qcResults:
+          type: object
+          description: 事前质控结果
+    QcScoreVO:
+      type: object
+      description: 评分响应（出参；满分100，最低0）
+      properties:
+        score:
+          type: integer
+        grade:
+          type: string
+          enum:
+            - 合格
+            - 待复核
+            - 无效
+        deductions:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              points:
+                type: integer
+    # ========== 复核 DTO / VO ==========
+    ReviewTaskVO:
+      type: object
+      description: 复核任务（出参）
+      properties:
+        taskId:
+          type: string
+        recordId:
+          type: string
+        status:
+          type: string
+          enum:
+            - 待复核
+            - 已完成
+        issueType:
+          type: string
+        score:
+          type: integer
+        createTime:
+          type: string
+          format: date-time
+          description: 创建时间
+        deadlineTime:
+          type: string
+          format: date-time
+          description: 复核截止时间（7个工作日时限）
+    ReviewTasksVO:
+      type: object
+      description: 复核任务列表（出参）
+      properties:
+        total:
+          type: integer
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReviewTaskVO'
+    ReviewDTO:
+      type: object
+      description: 人工校正与复核请求（入参；correctedData 允许传 null，代表仅裁定不修改数据）
+      properties:
+        correctedData:
+          anyOf:
+            - $ref: '#/components/schemas/StructuredData'
+            - nullable: true
+        comment:
+          type: string
+    ReviewResultVO:
+      type: object
+      description: 复核结果（出参）
+      properties:
+        status:
+          type: string
+          enum:
+            - 已完成
+            - 待复核
+        score:
+          type: integer
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              msg:
+                type: string
+    # ========== 词典管理 DTO / VO ==========
+    DictionaryImportDTO:
+      type: object
+      description: 术语库导入请求（入参，multipart）
+      properties:
+        type:
+          type: string
+          enum:
+            - symptom
+            - syndrome
+            - herb
+            - formula
+        file:
+          type: string
+          format: binary
+    DictionaryImportVO:
+      type: object
+      description: 术语库导入结果（出参）
+      properties:
+        type:
+          type: string
+        total:
+          type: integer
+        imported:
+          type: integer
+        failed:
+          type: integer
+        failures:
+          type: array
+          items:
+            type: object
+            properties:
+              row:
+                type: integer
+              reason:
+                type: string
+    DictionaryTermVO:
+      type: object
+      description: 术语条目（出参）
+      properties:
+        standardTerm:
+          type: string
+        aliases:
+          type: array
+          items:
+            type: string
+    DictionaryTermsVO:
+      type: object
+      description: 术语列表（出参）
+      properties:
+        terms:
+          type: array
+          items:
+            $ref: '#/components/schemas/DictionaryTermVO'
+    RollbackDTO:
+      type: object
+      description: 术语库回滚请求（入参）
+      required:
+        - type
+        - backupFilename
+      properties:
+        type:
+          type: string
+          enum:
+            - symptom
+            - syndrome
+            - herb
+            - formula
+        backupFilename:
+          type: string
+          description: 备份文件名，如 symptoms.json.bak_20260811_143000
+    # ========== 统计 DTO / VO ==========
+    StatsDTO:
+      type: object
+      description: 数据统计请求（入参；上层控制 recordIds 数量上限，接口内部不分页）
+      required:
+        - type
+        - recordIds
+      properties:
+        type:
+          type: string
+          enum:
+            - symptom
+            - syndrome
+            - prescription
+          description: symptom症状频次 / syndrome证型分布 / prescription方剂中药频次
+        recordIds:
+          type: array
+          items:
+            type: string
+    StatsVO:
+      type: object
+      description: 统计响应（出参，按 type 返回不同结构）
+      properties:
+        statistics:
+          type: array
+          description: type=symptom
+          items:
+            type: object
+            properties:
+              symptom:
+                type: string
+              count:
+                type: integer
+        distribution:
+          type: array
+          description: type=syndrome
+          items:
+            type: object
+            properties:
+              syndrome:
+                type: string
+              count:
+                type: integer
+        formulaStats:
+          type: array
+          description: type=prescription 方剂
+          items:
+            type: object
+            properties:
+              formula:
+                type: string
+              count:
+                type: integer
+        herbStats:
+          type: array
+          description: type=prescription 中药
+          items:
+            type: object
+            properties:
+              herb:
+                type: string
+              count:
+                type: integer
+paths:
+  /api/auth/login:
+    post:
+      tags:
+        - 认证
+      summary: 用户登录
+      description: 账号密码登录鉴权，下发令牌与角色信息，登录成功按角色返回菜单列表
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginDTO'
+            example:
+              username: admin
+              password: '123456'
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  msg:
+                    type: string
+                    example: 登录成功
+                  data:
+                    $ref: '#/components/schemas/LoginVO'
+        '400':
+          description: 参数非法（如用户名或密码为空）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorVO'
+        '401':
+          description: 用户名或密码错误 / 用户不存在或已停用（code=401）
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 401
+                  msg:
+                    type: string
+                    example: 用户名或密码错误
+                  data:
+                    type: object
+                    nullable: true
+  /api/logs/export:
+    get:
+      tags:
+        - 日志
+      summary: 操作日志导出
+      description: 读取 logs/operation.log 日志文件，作为文件流返回下载（不套 Result 包装）
+      responses:
+        '200':
+          description: 日志文件流
+          content:
+            text/plain:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          description: 日志文件不存在或读取失败（code=500）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorVO'
+  /api/records/import:
+    post:
+      tags:
+        - 病历管理
+      summary: 病历批量导入
+      description: |
+        批量上传原始病历文件（TXT/Excel/CSV），校验格式并创建导入任务，自动对手机号、身份证号脱敏。
+        约束：单文件最大10MB，单次最多10个文件。
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+      responses:
+        '200':
+          description: 导入任务已创建
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  msg:
+                    type: string
+                    example: 导入任务已创建
+                  data:
+                    $ref: '#/components/schemas/ImportTaskVO'
+        '400':
+          description: 文件格式不支持 / 上传数超限（最多10个）/ 单文件超限（最大10MB）/ 文件为空或乱码 / 病历文本为空
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorVO'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /api/records/import/{taskId}/status:
+    get:
+      tags:
+        - 病历管理
+      summary: 导入进度查询
+      description: 查询批量导入任务处理进度。任务状态暂存服务内存，服务重启后丢失
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 任务状态
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: '#/components/schemas/ImportStatusVO'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: 任务不存在或服务重启后任务状态丢失
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorVO'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /api/records:
+    post:
+      tags:
+        - 病历管理
+      summary: 单条新增病历
+      description: 手动新增病历并绑定元数据，完成单条病历入库
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRecordDTO'
+            example:
+              rawText: 患者发热咳嗽两天，舌红苔黄，脉浮数。
+              metadata:
+                visitDate: '2024-11-20'
+                department: 内科
+                tags:
+                  - 门诊
+      responses:
+        '200':
+          description: 新增成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  msg:
+                    type: string
+                    example: 新增成功
+                  data:
+                    $ref: '#/components/schemas/CreateRecordVO'
+        '400':
+          description: 病历文本为空（code=1005）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorVO'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    delete:
+      tags:
+        - 病历管理
+      summary: 批量删除病历
+      description: 按病历ID列表批量删除
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteRecordsDTO'
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  msg:
+                    type: string
+                    example: 删除成功
+                  data:
+                    $ref: '#/components/schemas/DeleteRecordsVO'
+        '400':
+          description: 参数非法（ids 为空）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorVO'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: 病历不存在（code=1006）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorVO'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /api/records/raw/{recordId}:
+    get:
+      tags:
+        - 病历管理
+      summary: 原始病历查看
+      description: 根据病历ID只读查询原始病历文本及元数据，原始数据只读锁定
+      parameters:
+        - name: recordId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 原始病历
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: '#/components/schemas/RawRecordVO'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: 病历不存在（code=1006）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorVO'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /api/records/{recordId}:
+    put:
+      tags:
+        - 病历管理
+      summary: 病历修改（仅元数据）
+      description: 修改病历元数据（就诊时间、科室、标签、归档状态），原始文本不可修改
+      parameters:
+        - name: recordId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRecordDTO'
+            example:
+              metadata:
+                visitDate: '2024-11-20'
+                department: 内科
+                tags:
+                  - 门诊
+                archived: false
+      responses:
+        '200':
+          description: 修改成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  msg:
+                    type: string
+                    example: 修改成功
+                  data:
+                    type: object
+                    nullable: true
+        '400':
+          description: 原始病历文本不允许修改（code=1007）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorVO'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: 病历不存在（code=1006）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorVO'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /api/nlp/extract:
+    post:
+      tags:
+        - NLP抽取
+      summary: NLP实体抽取
+      description: NLP实体抽取统一入口，一次返回完整结构化数据（症状/舌脉/证型病因治法/方剂中药）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NlpExtractDTO'
+            example:
+              text: 患者发热咽痛两天，舌红苔黄，脉浮数。证属风热犯肺，治以辛凉解表，方用银翘散，金银花15g、连翘10g。
+      responses:
+        '200':
+          description: 抽取结果
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: '#/components/schemas/NlpExtractVO'
+        '400':
+          description: 待抽取文本为空 / 文本无法解析（乱码或非病历文本）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorVO'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /api/governance/normalize:
+    post:
+      tags:
+        - 数据治理
+      summary: 术语标准化
+      description: 将口语化/非标准中医术语归一国标标准术语。未命中时 standardTerm 返回原词、source 返回空字符串
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NormalizeDTO'
+            example:
+              type: symptom
+              term: 嗓子疼
+      responses:
+        '200':
+          description: 标准化结果
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: '#/components/schemas/NormalizeVO'
+        '400':
+          description: 术语类型非法（type 不在 symptom/syndrome/herb/formula 范围）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorVO'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /api/qc/check:
+    post:
+      tags:
+        - 质控
+      summary: 质控检查（缺失/格式/查重）
+      description: 事前质控统一入口，一次返回缺失字段、格式错误、查重结果
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QcCheckDTO'
+      responses:
+        '200':
+          description: 检查结果
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: '#/components/schemas/QcCheckVO'
+        '400':
+          description: structuredData 为空（code=2002）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorVO'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /api/qc/check/logic:
+    post:
+      tags:
+        - 质控
+      summary: 诊疗逻辑一致性检查
+      description: 事中质控，校验证型、治法、方剂、中药的诊疗逻辑一致性（入参为数组）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogicCheckDTO'
+      responses:
+        '200':
+          description: 校验结果
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: '#/components/schemas/LogicCheckVO'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /api/review/tasks:
+    get:
+      tags:
+        - 复核
+      summary: 待复核任务列表
+      description: 分页查询待复核病历任务，展示复核时限
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            example: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            example: 20
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - 待复核
+              - 已完成
+      responses:
+        '200':
+          description: 任务列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: '#/components/schemas/ReviewTasksVO'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /api/records/{recordId}/review:
+    post:
+      tags:
+        - 复核
+      summary: 人工校正与复核
+      description: 合并「人工校正 + 提交复核」，修改数据并复核通过后系统自动重新执行评分与逻辑校验
+      parameters:
+        - name: recordId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewDTO'
+      responses:
+        '200':
+          description: 复核结果（通过/保持待复核）
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: '#/components/schemas/ReviewResultVO'
+        '400':
+          description: 复核记录不存在或状态已完结（code=2003）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorVO'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: 病历不存在（code=1006）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorVO'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /api/export/dataset:
+    post:
+      tags:
+        - 数据治理
+      summary: 标准数据集导出
+      description: 按条件导出质控合格的标准化病历数据集，支持 CSV/JSON 格式。文件流下载，不套 Result 包装，导出自动脱敏
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportDatasetDTO'
+            example:
+              format: csv
+              filters: {}
+      responses:
+        '200':
+          description: 数据集文件流（CSV为UTF-8、首行为字段名；JSON为数组格式）
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: 质控未通过，禁止导出数据集（code=2001）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorVO'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /api/governance/clean:
+    post:
+      tags:
+        - 数据治理
+      summary: 数据清洗规整
+      description: 批量清洗病历数据，完成去重、修复、规整、脏数据隔离
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CleanDTO'
+      responses:
+        '200':
+          description: 清洗完成
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  msg:
+                    type: string
+                    example: 清洗完成
+                  data:
+                    $ref: '#/components/schemas/CleanVO'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: 病历不存在（code=1006）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorVO'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /api/qc/score:
+    post:
+      tags:
+        - 质控
+      summary: 终末质控评分
+      description: 自动对病历打分、扣分并完成质量分级（合格/待复核/无效）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QcScoreDTO'
+      responses:
+        '200':
+          description: 评分与分级
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: '#/components/schemas/QcScoreVO'
+        '400':
+          description: structuredData 为空（code=2002）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorVO'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /api/dictionary/import:
+    post:
+      tags:
+        - 词典管理
+      summary: 术语库导入
+      description: 上传国标术语文件（Excel/CSV），由 LLM 转换为标准 JSON 并写入术语库文件，写入前自动备份旧文件
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DictionaryImportDTO'
+      responses:
+        '200':
+          description: 导入完成
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  msg:
+                    type: string
+                    example: 导入完成
+                  data:
+                    $ref: '#/components/schemas/DictionaryImportVO'
+        '400':
+          description: 术语类型非法（code=4001）；行级转换失败在 data.failures 中返回（code=4003，整体仍返回 200）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorVO'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /api/dictionary/terms:
+    get:
+      tags:
+        - 词典管理
+      summary: 术语查询/自动补全
+      description: 从内存术语库按类型与关键词过滤，只读查询
+      parameters:
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - symptom
+              - syndrome
+              - herb
+              - formula
+        - name: keyword
+          in: query
+          schema:
+            type: string
+          description: 名称或别名包含匹配
+      responses:
+        '200':
+          description: 术语列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: '#/components/schemas/DictionaryTermsVO'
+        '400':
+          description: 术语类型非法（code=4001）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorVO'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /api/dictionary/rollback:
+    post:
+      tags:
+        - 词典管理
+      summary: 术语库版本回滚
+      description: 根据备份文件名将术语库恢复到指定版本，恢复后自动重新加载内存术语库
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RollbackDTO'
+      responses:
+        '200':
+          description: 版本恢复成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  msg:
+                    type: string
+                    example: 版本恢复成功
+                  data:
+                    type: object
+                    nullable: true
+        '400':
+          description: 术语类型非法（code=4001）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorVO'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: 备份文件不存在（code=1006 语义：指定版本不存在）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorVO'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /api/stats:
+    post:
+      tags:
+        - 统计查询
+      summary: 数据统计
+      description: 按 type 批量统计：symptom 症状频次 / syndrome 证型分布 / prescription 方剂中药频次。上层控制 recordIds 数量上限，接口内部不分页
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatsDTO'
+      responses:
+        '200':
+          description: 统计结果
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: '#/components/schemas/StatsVO'
+        '400':
+          description: 参数非法（type 非法或 recordIds 为空）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorVO'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /api/records/search:
+    post:
+      tags:
+        - 病历管理
+      summary: 多条件病历查询
+      description: 组合条件分页检索病历，返回病历摘要与总数（summary 为原始病历截取片段）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SearchDTO'
+            example:
+              patientId: ''
+              dateRange:
+                - '2024-01-01'
+                - '2024-12-31'
+              syndrome: ''
+              status: ''
+              page: 1
+              pageSize: 20
+      responses:
+        '200':
+          description: 查询结果
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: '#/components/schemas/SearchVO'
+        '400':
+          description: 参数非法（分页参数错误等）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorVO'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
