@@ -19,13 +19,10 @@ venv/
 .DS_Store
 Thumbs.db
 
-# 数据文件（敏感，不上传）
-*.txt
-*.csv
-*.xlsx
+# 术语库备份（不上传）
 data/dictionaries/backup/
 
-# 日志
+# 日志（不上传）
 logs/
 
 # 模型文件（太大，不上传）
