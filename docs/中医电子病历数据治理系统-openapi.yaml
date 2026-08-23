@@ -1174,12 +1174,19 @@ paths:
             schema:
               $ref: '#/components/schemas/UpdateRecordDTO'
             example:
-              metadata:
-                visitDate: '2024-11-20'
-                department: 内科
-                tags:
-                  - 门诊
-                archived: false
+              structuredData:
+                symptoms:
+                  - content: 发热
+                    sourceText: 发热
+                tongueList:
+                  - content: 舌红苔黄
+                    sourceText: 舌红苔黄
+                pulseList:
+                  - content: 脉浮数
+                    sourceText: 脉浮数
+                syndromeList:
+                  - content: 风热犯肺证
+                    sourceText: 风热犯肺证
       responses:
         '200':
           description: 修改成功
