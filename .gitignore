@@ -19,6 +19,9 @@ venv/
 .DS_Store
 Thumbs.db
 
+# Excel临时文件
+~$*
+
 # 术语库备份（不上传）
 data/dictionaries/backup/
 

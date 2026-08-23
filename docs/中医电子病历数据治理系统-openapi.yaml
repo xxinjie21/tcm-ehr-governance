@@ -244,14 +244,75 @@ components:
             - 已完成
     CreateRecordDTO:
       type: object
-      description: 单条新增病历请求（入参）
+      description: 单条新增病历请求（入参，21个字段）
       required:
-        - rawText
+        - registrationNo
+        - outpatientNo
       properties:
-        rawText:
+        registrationNo:
           type: string
-        metadata:
-          $ref: '#/components/schemas/RecordMetadata'
+          description: 登记号
+        outpatientNo:
+          type: string
+          description: 门诊号
+        gender:
+          type: string
+          description: 性别
+        age:
+          type: string
+          description: 年龄
+        visitCount:
+          type: integer
+          description: 就诊次数
+        westernDiagnosis:
+          type: string
+          description: 西医诊断
+        tcmDiagnosis:
+          type: string
+          description: 中医诊断
+        presentIllness:
+          type: string
+          description: 现病史
+        chiefComplaint:
+          type: string
+          description: 主诉
+        selfReport:
+          type: string
+          description: 自诉
+        inspection:
+          type: string
+          description: 望诊
+        pulse:
+          type: string
+          description: 脉诊
+        tongue:
+          type: string
+          description: 舌诊
+        physicalExam:
+          type: string
+          description: 查体
+        syndrome:
+          type: string
+          description: 辨证结论
+        prescription:
+          type: string
+          description: 草药
+        followUp:
+          type: string
+          description: 随访
+        treatmentEffect:
+          type: string
+          description: 治疗效果
+        department:
+          type: string
+          description: 开单科室
+        doctorId:
+          type: string
+          description: 医生工号
+        visitTime:
+          type: string
+          format: date-time
+          description: 接诊时间
     CreateRecordVO:
       type: object
       description: 新增病历响应（出参）
@@ -260,38 +321,80 @@ components:
           type: string
     RawRecordVO:
       type: object
-      description: 原始病历查看响应（出参）
+      description: 原始病历查看响应（出参，21个字段）
       properties:
         id:
           type: string
-        rawText:
+        registrationNo:
           type: string
-        metadata:
-          type: object
-          properties:
-            visitDate:
-              type: string
-              format: date
-            department:
-              type: string
+          description: 登记号
+        outpatientNo:
+          type: string
+          description: 门诊号
+        gender:
+          type: string
+          description: 性别
+        age:
+          type: string
+          description: 年龄
+        visitCount:
+          type: integer
+          description: 就诊次数
+        westernDiagnosis:
+          type: string
+          description: 西医诊断
+        tcmDiagnosis:
+          type: string
+          description: 中医诊断
+        presentIllness:
+          type: string
+          description: 现病史
+        chiefComplaint:
+          type: string
+          description: 主诉
+        selfReport:
+          type: string
+          description: 自诉
+        inspection:
+          type: string
+          description: 望诊
+        pulse:
+          type: string
+          description: 脉诊
+        tongue:
+          type: string
+          description: 舌诊
+        physicalExam:
+          type: string
+          description: 查体
+        syndrome:
+          type: string
+          description: 辨证结论
+        prescription:
+          type: string
+          description: 草药
+        followUp:
+          type: string
+          description: 随访
+        treatmentEffect:
+          type: string
+          description: 治疗效果
+        department:
+          type: string
+          description: 开单科室
+        doctorId:
+          type: string
+          description: 医生工号
+        visitTime:
+          type: string
+          format: date-time
+          description: 接诊时间
     UpdateRecordDTO:
       type: object
-      description: 修改病历请求（入参，仅元数据，原始文本不可修改）
+      description: 修改病历请求（入参，仅结构化数据，原始字段不可修改）
       properties:
-        metadata:
-          type: object
-          properties:
-            visitDate:
-              type: string
-              format: date
-            department:
-              type: string
-            tags:
-              type: array
-              items:
-                type: string
-            archived:
-              type: boolean
+        structuredData:
+          $ref: '#/components/schemas/StructuredData'
     DeleteRecordsDTO:
       type: object
       description: 批量删除请求（入参）
@@ -312,8 +415,21 @@ components:
       type: object
       description: 多条件查询请求（入参）
       properties:
-        patientId:
+        registrationNo:
           type: string
+          description: 登记号
+        outpatientNo:
+          type: string
+          description: 门诊号
+        gender:
+          type: string
+          description: 性别
+        department:
+          type: string
+          description: 开单科室
+        doctorId:
+          type: string
+          description: 医生工号
         dateRange:
           type: array
           items:
@@ -322,6 +438,7 @@ components:
           description: [开始日期, 结束日期]
         syndrome:
           type: string
+          description: 辨证结论关键词
         status:
           type: string
           description: 病历状态，如 invalid 查询无效数据
@@ -333,7 +450,7 @@ components:
           example: 20
     SearchVO:
       type: object
-      description: 查询响应（出参；summary 为原始病历截取片段，非完整结构化）
+      description: 查询响应（出参）
       properties:
         total:
           type: integer

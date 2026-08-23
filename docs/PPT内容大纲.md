@@ -309,22 +309,37 @@ Java后端收到结果 → 本地执行术语归一(Map匹配) → 评分计算(
 | update_time | DATETIME | 更新时间 |
 
 #### 2. records表（病历表）- 核心表，所有数据围绕此表
-| 字段名             | 类型          | 说明                                     |
-| --------------- | ----------- | -------------------------------------- |
-| id              | VARCHAR(36) | 主键，UUID                                |
-| patient_id      | VARCHAR(50) | 患者ID（已脱敏）                              |
-| raw_text        | TEXT        | 原始病历文本（只读锁定，禁止修改）                      |
-| visit_date      | DATE        | 就诊时间                                   |
-| department      | VARCHAR(50) | 科室                                     |
-| tags            | JSON        | 分类标签（门诊/住院等）                           |
-| structured_data | JSON        | 结构化数据（NLP抽取结果，见附录）                     |
-| qc_results      | JSON        | 质控检查结果（缺失/格式/逻辑/评分）                    |
-| score           | INT         | 质控评分（满分100）                            |
-| grade           | VARCHAR(20) | 分级：合格/待复核/无效                           |
-| status          | VARCHAR(20) | 状态：pending/reviewing/completed/invalid |
-| archived        | BOOLEAN     | 是否归档                                   |
-| create_time     | DATETIME    | 创建时间                                   |
-| update_time     | DATETIME    | 更新时间                                   |
+| 字段名 | 类型 | 说明 |
+|-------|------|------|
+| id | VARCHAR(36) | 主键，UUID |
+| registration_no | VARCHAR(50) | 登记号 |
+| outpatient_no | VARCHAR(50) | 门诊号 |
+| gender | VARCHAR(10) | 性别 |
+| age | VARCHAR(20) | 年龄 |
+| visit_count | INT | 就诊次数 |
+| western_diagnosis | TEXT | 西医诊断 |
+| tcm_diagnosis | TEXT | 中医诊断 |
+| present_illness | TEXT | 现病史 |
+| chief_complaint | TEXT | 主诉 |
+| self_report | TEXT | 自诉 |
+| inspection | TEXT | 望诊 |
+| pulse | TEXT | 脉诊 |
+| tongue | TEXT | 舌诊 |
+| physical_exam | TEXT | 查体 |
+| syndrome | TEXT | 辨证结论 |
+| prescription | TEXT | 草药 |
+| follow_up | TEXT | 随访 |
+| treatment_effect | TEXT | 治疗效果 |
+| department | VARCHAR(50) | 开单科室 |
+| doctor_id | VARCHAR(50) | 医生工号 |
+| visit_time | DATETIME | 接诊时间 |
+| structured_data | JSON | 结构化数据（NLP抽取结果） |
+| qc_results | JSON | 质控检查结果 |
+| score | INT | 质控评分（满分100） |
+| grade | VARCHAR(20) | 分级：合格/待复核/无效 |
+| status | VARCHAR(20) | 状态：pending/reviewing/completed/invalid |
+| create_time | DATETIME | 创建时间 |
+| update_time | DATETIME | 更新时间 |
 
 **structured_data JSON结构**：
 ```json
@@ -726,19 +741,35 @@ tonguePulseRules.put("舌淡", List.of("脉数"));    // 舌淡不配脉数
 ## 10. 当前使用的数据情况
 
 ### 数据来源
-- **来源**：医院脱敏中医电子病历数据集（项目内部提供，需提前找老师拿）
-- **格式**：TXT、Excel或CSV
-- **约束**：单文件≤10MB，单次最多上传10个文件
+- **来源**：医院脱敏中医电子病历数据集（500条，项目内部提供）
+- **格式**：Excel（.xlsx）
+- **字段数**：21个字段
 - **安全**：组内共享不外泄
 
-### 主要字段
-| 字段 | 说明 | 示例 |
-|------|------|------|
-| 原始病历文本 | 包含四诊、辨证、治法方药的完整自由文本 | "患者张某，主诉发热..." |
-| 就诊时间 | 就诊日期 | 2024-01-15 |
-| 科室 | 就诊科室 | 内科 |
-| 门诊/住院标签 | 就诊类型 | 门诊 |
-| 患者ID | 已脱敏患者标识 | P001 |
+### 主要字段（21个）
+| # | 字段名 | 说明 | 用途 |
+|---|--------|------|------|
+| 1 | 登记号 | 患者ID | 患者标识 |
+| 2 | 门诊号 | 就诊ID | 就诊标识 |
+| 3 | 性别 | 患者性别 | 患者信息 |
+| 4 | 年龄 | 患者年龄 | 患者信息 |
+| 5 | 就诊次数 | 就诊次数 | 就诊信息 |
+| 6 | 西医诊断 | 西医诊断结果 | 诊断信息 |
+| 7 | 中医诊断 | 中医诊断结果 | 诊断信息 |
+| 8 | 现病史 | 现病史描述 | NLP抽取症状 |
+| 9 | 自诉 | 患者自诉 | NLP抽取症状 |
+| 10 | 主诉 | 主要症状 | NLP抽取症状 |
+| 11 | 望诊 | 望诊描述 | NLP抽取舌象 |
+| 12 | 脉诊 | 脉诊描述 | NLP抽取脉象 |
+| 13 | 舌诊 | 舌诊描述 | NLP抽取舌象 |
+| 14 | 查体 | 体格检查 | 体格检查 |
+| 15 | 辨证结论 | 辨证结论 | NLP抽取证型、治法 |
+| 16 | 草药 | 中药处方（含剂量） | NLP抽取方剂、中药 |
+| 17 | 随访 | 随访记录 | 治疗信息 |
+| 18 | 治疗效果 | 治疗效果 | 治疗信息 |
+| 19 | 开单科室 | 就诊科室 | 科室信息 |
+| 20 | 医生工号 | 医生工号 | 医生信息 |
+| 21 | 接诊时间 | 就诊时间 | 就诊时间 |
 
 ### NLP抽取后的结构化字段
 | 字段 | 类型 | 说明 |
