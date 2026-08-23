@@ -942,7 +942,7 @@ paths:
         - 病历管理
       summary: 病历批量导入
       description: |
-        批量上传原始病历文件（TXT/Excel/CSV），校验格式并创建导入任务，自动对手机号、身份证号脱敏。
+        批量上传病历Excel文件（.xlsx），校验格式并创建导入任务。
         约束：单文件最大10MB，单次最多10个文件。
       requestBody:
         required: true
