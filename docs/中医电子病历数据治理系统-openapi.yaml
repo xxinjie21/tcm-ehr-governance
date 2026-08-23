@@ -472,7 +472,7 @@ components:
       properties:
         text:
           type: string
-          description: 待抽取的原始病历文本
+          description: 待抽取的病历文本
     NlpExtractVO:
       type: object
       description: NLP 抽取响应（出参，结构同 StructuredData）
@@ -1124,8 +1124,8 @@ paths:
     get:
       tags:
         - 病历管理
-      summary: 原始病历查看
-      description: 根据病历ID只读查询原始病历文本及元数据，原始数据只读锁定
+      summary: 病历数据查看
+      description: 根据病历ID只读查询完整病历数据（21个字段），原始字段只读锁定
       parameters:
         - name: recordId
           in: path
@@ -1205,7 +1205,7 @@ paths:
                     type: object
                     nullable: true
         '400':
-          description: 原始病历文本不允许修改（code=1007）
+          description: 原始字段不允许修改（code=1007）
           content:
             application/json:
               schema:
