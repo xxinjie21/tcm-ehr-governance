@@ -943,7 +943,7 @@ paths:
       summary: 病历批量导入
       description: |
         批量上传病历Excel文件（.xlsx），校验格式并创建导入任务。
-        约束：单文件最大10MB，单次最多10个文件。
+        约束：单文件最大50MB，单次最多20个文件。
       requestBody:
         required: true
         content:
@@ -973,7 +973,7 @@ paths:
                   data:
                     $ref: '#/components/schemas/ImportTaskVO'
         '400':
-          description: 文件格式不支持 / 上传数超限（最多10个）/ 单文件超限（最大10MB）/ 文件为空或乱码 / 病历文本为空
+          description: 文件格式不支持 / 上传数超限（最多20个）/ 单文件超限（最大50MB）/ 文件为空
           content:
             application/json:
               schema:
