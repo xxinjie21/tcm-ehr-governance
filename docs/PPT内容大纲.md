@@ -259,38 +259,45 @@ Java后端收到结果 → 本地执行术语归一(Map匹配) → 评分计算(
 
 ### E-R关系图
 ```
-┌──────────────────┐       1:N       ┌──────────────────────┐
-│     users        │ ───────────────→│      records         │
-│──────────────────│                 │──────────────────────│
-│ id (PK)          │                 │ id (PK)              │
-│ username         │                 │ patient_id          │
-│ password         │                 │ raw_text            │
-│ role             │                 │ visit_date          │
-│ create_time      │                 │ department          │
-│ update_time      │                 │ tags (JSON)         │
-└──────────────────┘                 │ structured_data(JSON)│
-                                     │ qc_results (JSON)   │
-                                     │ score               │
-                                     │ grade               │
-                                     │ status              │
-                                     │ archived            │
-                                     │ create_time         │
-                                     │ update_time         │
-                                     └──────────────────────┘
+┌──────────────────┐       1:N       ┌──────────────────────────┐
+│     users        │ ───────────────→│        records           │
+│──────────────────│                 │──────────────────────────│
+│ id (PK)          │                 │ id (PK)                  │
+│ username         │                 │ registration_no          │
+│ password         │                 │ outpatient_no            │
+│ role             │                 │ gender, age              │
+│ create_time      │                 │ visit_count              │
+│ update_time      │                 │ western_diagnosis        │
+└──────────────────┘                 │ tcm_diagnosis            │
+                                     │ present_illness          │
+                                     │ chief_complaint          │
+                                     │ self_report              │
+                                     │ inspection, pulse        │
+                                     │ tongue, physical_exam    │
+                                     │ syndrome, prescription   │
+                                     │ follow_up                │
+                                     │ treatment_effect         │
+                                     │ department, doctor_id    │
+                                     │ visit_time               │
+                                     │ structured_data (JSON)   │
+                                     │ qc_results (JSON)        │
+                                     │ score, grade, status     │
+                                     │ create_time, update_time │
+                                     └──────────────────────────┘
                                            │
                                            │ 1:N
                                            ▼
-                                     ┌──────────────────────┐
-                                     │    review_tasks      │
-                                     │──────────────────────│
-                                     │ id (PK)              │
-                                     │ record_id →records.id│
-                                     │ status               │
-                                     │ issue_type           │
-                                     │ score                │
-                                     │ create_time          │
-                                     │ deadline_time        │
-                                     └──────────────────────┘
+                                     ┌──────────────────────────┐
+                                     │      review_tasks        │
+                                     │──────────────────────────│
+                                     │ id (PK)                  │
+                                     │ record_id → records.id   │
+                                     │ status                   │
+                                     │ issue_type               │
+                                     │ score                    │
+                                     │ create_time              │
+                                     │ deadline_time            │
+                                     └──────────────────────────┘
 
 术语库：JSON文件存储（data/dictionaries/*.json），不入库
 日志：文件存储（logs/operation.log），不入库
@@ -789,10 +796,9 @@ tonguePulseRules.put("舌淡", List.of("脉数"));    // 舌淡不配脉数
 3. **输出**：POST /api/export/dataset导出标准数据集（CSV/JSON）
 
 ### 数据安全措施
-1. **敏感信息脱敏**：导入时自动将手机号、身份证号替换为***
-2. **原始数据只读**：raw_text字段禁止修改（PUT /api/records/{id} 仅可改元数据）
-3. **操作日志记录**：关键操作追加写入logs/operation.log
-4. **权限控制**：登录后按role返回菜单列表，前端按菜单渲染页面
+1. **原始字段只读**：21个原始字段禁止修改（仅可修改structuredData和qcResults）
+2. **操作日志记录**：关键操作追加写入logs/operation.log
+3. **权限控制**：登录后按role返回菜单列表，前端按菜单渲染页面
 
 ## 11. 成员的具体分工
 

@@ -1030,12 +1030,27 @@ paths:
             schema:
               $ref: '#/components/schemas/CreateRecordDTO'
             example:
-              rawText: 患者发热咳嗽两天，舌红苔黄，脉浮数。
-              metadata:
-                visitDate: '2024-11-20'
-                department: 内科
-                tags:
-                  - 门诊
+              registrationNo: 'R001'
+              outpatientNo: 'O001'
+              gender: 男
+              age: 45岁
+              visitCount: 1
+              westernDiagnosis: 上呼吸道感染
+              tcmDiagnosis: 风热感冒
+              presentIllness: 患者发热咳嗽两天
+              chiefComplaint: 发热、咳嗽
+              selfReport: 患者自诉发热
+              inspection: 面红
+              pulse: 脉浮数
+              tongue: 舌红苔黄
+              physicalExam: 咽部充血
+              syndrome: 风热犯肺证
+              prescription: 银翘散加减，细辛3g,桂枝6g,黄连10g
+              followUp: 无
+              treatmentEffect: 好转
+              department: 内科
+              doctorId: D001
+              visitTime: '2024-11-20T10:00:00'
       responses:
         '200':
           description: 新增成功
@@ -1707,7 +1722,10 @@ paths:
             schema:
               $ref: '#/components/schemas/SearchDTO'
             example:
-              patientId: ''
+              registrationNo: ''
+              outpatientNo: ''
+              gender: ''
+              department: ''
               dateRange:
                 - '2024-01-01'
                 - '2024-12-31'
