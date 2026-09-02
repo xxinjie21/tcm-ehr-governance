@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
-  title: 中医电子病历数据治理系统
+  title: 中医电子病历质控与标准化系统
   description: |
-    中医电子病历数据治理系统接口文档。
+    中医电子病历质控与标准化系统接口文档。
     ## 实体分层命名约定
     - **DTO**（后缀 DTO）：请求体入参模型，接口入参统一使用。
     - **VO**（后缀 VO）：响应体出参模型，接口出参统一使用。
@@ -190,7 +190,7 @@ components:
           type: string
         role:
           type: string
-          description: 数据管理员 / 病历审核人员 / 科研只读用户 / 系统管理员
+          description: 管理员 / 审核员
         menus:
           type: array
           items:
