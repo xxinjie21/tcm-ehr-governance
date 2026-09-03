@@ -196,13 +196,14 @@ components:
           items:
             type: string
           example:
-            - 病历管理
+            - 首页看板
+            - 病历数据
             - 结构化解析
-            - 质控管理
+            - 质控校验
             - 人工复核
             - 数据治理
-            - 词典管理
-            - 系统管理
+            - 术语词典
+            - 日志审计
     # ========== 病历管理 DTO / VO ==========
     ImportSummaryVO:
       type: object
@@ -685,6 +686,9 @@ components:
           type: string
           format: date-time
           description: 复核截止时间（7个工作日时限）
+        structuredData:
+          $ref: '#/components/schemas/StructuredData'
+          description: 已存储的NLP结构化抽取结果，供复核页左侧对照展示（免单独请求）
     ReviewTasksVO:
       type: object
       description: 复核任务列表（出参）
@@ -859,6 +863,26 @@ components:
                 type: string
               count:
                 type: integer
+    StatsOverviewVO:
+      type: object
+      description: 首页看板指标卡（出参），一次请求返回四个总览指标
+      properties:
+        totalRecords:
+          type: integer
+          description: 病历总数
+        qualifiedCount:
+          type: integer
+          description: 合格数（质控等级=合格）
+        qualifiedRate:
+          type: number
+          format: float
+          description: 合格率（百分比，保留1位小数）
+        pendingReviewCount:
+          type: integer
+          description: 待复核数
+        invalidCount:
+          type: integer
+          description: 无效数（隔离归档）
 paths:
   /api/auth/login:
     post:
@@ -1712,6 +1736,38 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorVO'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /api/stats/overview:
+    get:
+      tags:
+        - 统计查询
+      summary: 看板指标卡
+      description: 首页看板四个指标卡数据（病历总数/合格率/待复核数/无效数），一次请求返回，免多次分状态查询
+      responses:
+        '200':
+          description: 指标卡数据
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: '#/components/schemas/StatsOverviewVO'
+              example:
+                code: 200
+                msg: success
+                data:
+                  totalRecords: 1234
+                  qualifiedCount: 1104
+                  qualifiedRate: 89.5
+                  pendingReviewCount: 23
+                  invalidCount: 12
         '401':
           $ref: '#/components/responses/Unauthorized'
         '500':

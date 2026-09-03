@@ -51,9 +51,9 @@ tcm-ehr-qc/
 
 ## 接口数量
 
-- Java后端：21个接口（Spring Boot :8080）
+- Java后端：22个接口（Spring Boot :8080）
 - Python NLP服务：1个接口（FastAPI :8001）
-- 总计：22个接口
+- 总计：23个接口
 
 ## 核心算法
 
